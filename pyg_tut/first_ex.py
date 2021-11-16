@@ -18,7 +18,7 @@ class GCN(torch.nn.Module):
     def forward(self, x, edge_index):
         x = self.conv1(x, edge_index)
         x = F.relu(x)
-        x = F.dropout(x, training=self.training)
+        # x = F.dropout(x, training=self.training)
         x = self.conv2(x, edge_index)
         return F.log_softmax(x, dim=1)
 
@@ -39,7 +39,7 @@ def main(model_path):
 
 def train(model, data, optimizer):
     model.train()
-    epochs = 800
+    epochs = 200
     for epoch in tqdm(range(epochs), f'training epoch '):
         optimizer.zero_grad()
         out = model(data.x, data.edge_index)

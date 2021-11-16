@@ -1,44 +1,40 @@
 # coding=utf8
 
 
-" Data(x=[2708, 1433], edge_index=[2, 10556]"
-
 import torch
 from first_ex import GCN
+import onnx
+import onnxruntime
+
 
 class GcnInfer(object):
-    def __init__(self, model_path):
+    def __init__(self, model_path, onnx_path):
         self.model = torch.load(model_path)
         self.model = self.model.to('cuda')
         self.model.eval()
+        self.ort_session = onnxruntime.InferenceSession(onnx_path)
 
-    def export(self, onnx_path):
-        dm_x = torch.randn([500, 1433], dtype=torch.float32).to('cuda')
-        dm_edge = torch.randint(500, [2, 5000]).to('cuda')
+    def infer(self):
+        first_dim = 2708
+        sec_dim = 10556
+        dm_x = torch.randn([first_dim, 1433], dtype=torch.float32).to('cuda')
+        dm_edge = torch.randint(first_dim, [2, sec_dim]).to('cuda')
         # model = torch.jit.script(self.model)
-        model = self.model
-        torch.onnx.export(
-            model,
-            (dm_x, dm_edge),
-            onnx_path,
-            export_params=True,
-            opset_version=11,
-            do_constant_folding=True,
-            input_names=['node_feature', 'edges'],
-            output_names=['output'],
-            dynamic_axes={
-                'node_feature': {0: 'node_num'},
-                'edges': {1: 'edge_num'},
-                'output': {0: 'node_num'},
-                },
-            use_external_data_format=False
-        )
+        res = self.model(dm_x, dm_edge)
+        print(res)
+        print("following is onnx result")
+        ort_inputs = self.ort_session.get_inputs()
+        input_arr = [dm_x, dm_edge]
+        input_dict = dict([
+            (ort_elem.name, elem.to('cpu').numpy())
+            for ort_elem, elem in zip(ort_inputs, input_arr)])
+        res2 = self.ort_session.run(None, input_dict)[0]
+        print(res2)
 
 
 def main(model_path, onnx_path):
-    infer = GcnInfer(model_path)
-    infer.export(onnx_path)
-
+    infer = GcnInfer(model_path, onnx_path)
+    infer.infer()
 
 
 if __name__ == '__main__':
